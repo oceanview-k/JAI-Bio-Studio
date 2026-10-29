@@ -1,0 +1,1537 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JAI Bio Studio</title>
+<style>
+  :root{
+    --bg:#0e1013; --panel:#15181d; --panel2:#1b1f26; --line:#262c35;
+    --text:#d8dde5; --dim:#7d8896; --accent:#8ab870; --accent2:#7088b8;
+    --err:#e0625e; --warn:#d9a441;
+    --c-tag:#8ab870; --c-attr:#d9a441; --c-str:#c98fd8; --c-cmt:#5a6472; --c-txt:#c7d0dc;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:13px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:10px; padding:0 12px; height:46px;
+    border-bottom:1px solid var(--line); background:var(--panel); flex:none;
+  }
+  header .title{font-weight:600; letter-spacing:.02em; white-space:nowrap}
+  header .title span{color:var(--accent)}
+  header .sub{color:var(--dim); font-size:11.5px; white-space:nowrap}
+  .spacer{flex:1}
+  button{
+    font:inherit; color:var(--text); background:var(--panel2); border:1px solid var(--line);
+    border-radius:5px; padding:5px 10px; cursor:pointer; white-space:nowrap;
+  }
+  button:hover{background:#222833; border-color:#333b47}
+  button:active{transform:translateY(1px)}
+  button.ghost{background:transparent}
+  button.primary{background:#2c4a2a; border-color:#3d6340; color:#cfe8c5}
+  button.primary:hover{background:#345a31}
+  button.danger:hover{background:#3a2224; border-color:#5a2f31; color:#f0a8a5}
+  button.sm{padding:3px 8px; font-size:11.5px}
+  input,select,textarea{
+    font:inherit; color:var(--text); background:var(--panel2);
+    border:1px solid var(--line); border-radius:5px; padding:5px 8px; outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:#3c4756}
+  select{cursor:pointer}
+  .label{color:var(--dim); font-size:11.5px; text-transform:uppercase; letter-spacing:.09em; white-space:nowrap}
+  main{flex:1; display:flex; min-height:0}
+  #pane-left,#pane-right{display:flex; flex-direction:column; min-width:0; flex-basis:50%}
+  #divider{flex:none; width:6px; cursor:col-resize; background:var(--panel); border-left:1px solid var(--line); border-right:1px solid var(--line)}
+  #divider:hover{background:#232a34}
+  .toolbar{
+    display:flex; align-items:center; gap:8px; padding:7px 10px; flex:none;
+    border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap;
+  }
+  .seg{display:flex; border:1px solid var(--line); border-radius:5px; overflow:hidden}
+  .seg button{border:0; border-radius:0; background:transparent; color:var(--dim); padding:5px 10px}
+  .seg button.on{background:#2a323d; color:var(--text)}
+
+  /* редактор с подсветкой */
+  #editwrap{position:relative; flex:1; min-height:0; background:#0b0d10}
+  #hl,#code{
+    position:absolute; inset:0; margin:0; padding:12px 14px;
+    font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    tab-size:2; white-space:pre; overflow:auto; border:0; border-radius:0;
+  }
+  #hl{pointer-events:none; color:var(--c-txt); background:transparent; overflow:hidden}
+  #code{background:transparent; color:transparent; caret-color:#ffd479; resize:none; outline:none}
+  #code::selection{background:rgba(112,136,184,.35)}
+  .t-tag{color:var(--c-tag)}
+  .t-attr{color:var(--c-attr)}
+  .t-str{color:var(--c-str)}
+  .t-cmt{color:var(--c-cmt); font-style:italic}
+  .t-punct{color:#6b7787}
+
+  #preview{flex:1; width:100%; border:0; background:#141414}
+  .snippets{display:flex; gap:6px; flex-wrap:wrap}
+  .snippets button{font-size:11.5px; padding:4px 8px; color:var(--dim)}
+  .snippets button:hover{color:var(--text)}
+
+  #bottom{flex:none; height:214px; display:flex; flex-direction:column; border-top:1px solid var(--line); background:var(--panel)}
+  #bottom.collapsed{height:37px}
+  #bottom.collapsed .panes{display:none}
+  .tabs{display:flex; align-items:center; gap:2px; flex:none; border-bottom:1px solid var(--line); padding-right:10px}
+  .tabs button{border:0; border-radius:0; background:transparent; color:var(--dim); padding:8px 12px; border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--text); border-bottom-color:var(--accent)}
+  .count{display:inline-block; margin-left:6px; font-size:10.5px; padding:0 5px; border-radius:8px; background:#2a323d; color:var(--dim)}
+  .count.bad{background:#4a2a29; color:#f0a8a5}
+  .panes{flex:1; min-height:0; overflow:auto; padding:10px 14px}
+  .pane{display:none}
+  .pane.on{display:block}
+
+  .issue{display:flex; gap:10px; padding:3px 0; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04)}
+  .issue .ln{flex:none; width:52px; text-align:right; color:var(--dim); font:11.5px/1.5 ui-monospace,monospace}
+  .issue .lv{flex:none; width:56px; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em}
+  .issue .lv.error{color:var(--err)}
+  .issue .lv.warn{color:var(--warn)}
+  .issue .lv.ok{color:var(--accent)}
+  .issue .msg{flex:1}
+  .okline{color:var(--accent)}
+
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:9px}
+  #out{width:100%; height:96px; font:11.5px/1.55 ui-monospace,monospace; resize:none; white-space:pre}
+  .hint{color:var(--dim); font-size:11.5px; margin:0}
+  .stat{color:var(--dim); font-size:11.5px; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .stat b{color:var(--text); font-weight:600}
+
+  /* галерея */
+  .gal{display:flex; flex-direction:column; gap:4px}
+  .gal-item{display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid var(--line); border-radius:5px; background:var(--panel2)}
+  .gal-item.cur{border-color:#3d6340; background:#1c241c}
+  .gal-item .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .gal-item .meta{color:var(--dim); font-size:11px; white-space:nowrap}
+  .empty{color:var(--dim); padding:6px 2px}
+
+  /* панель картинки */
+  #imgpanel{display:none; gap:8px; align-items:center; flex-wrap:wrap}
+  #imgpanel.on{display:flex}
+  #imgpanel input[type=number]{width:76px}
+  .divider-v{width:1px; height:18px; background:var(--line)}
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
+    background:#2c4a2a; border:1px solid #3d6340; color:#cfe8c5;
+    padding:8px 16px; border-radius:6px; font-size:12.5px; z-index:50;
+    box-shadow:0 8px 24px rgba(0,0,0,.5); transition:opacity .25s;
+  }
+  .toast.err{background:#3a2224; border-color:#5a2f31; color:#f0a8a5}
+
+  /* гайд */
+  .help{max-width:860px; line-height:1.65; font-size:12.5px}
+  .help h3{
+    margin:0 0 8px; font-size:13px; font-weight:600; color:#fff;
+    display:flex; align-items:center; gap:8px;
+  }
+  .help h3 .num{
+    flex:none; width:20px; height:20px; border-radius:50%; background:#2c4a2a; color:#cfe8c5;
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  }
+  .help .step{
+    border:1px solid var(--line); border-radius:6px; background:var(--panel2);
+    padding:10px 13px; margin:0 0 8px;
+  }
+  .help .step p{margin:0 0 6px}
+  .help .step p:last-child{margin:0}
+  .help code{
+    background:#0b0d10; border:1px solid var(--line); border-radius:3px;
+    padding:1px 5px; font:11.5px ui-monospace,monospace; color:var(--accent);
+  }
+  .help kbd{
+    background:#2a323d; border:1px solid #3c4756; border-bottom-width:2px; border-radius:4px;
+    padding:0 5px; font:11px ui-monospace,monospace;
+  }
+  .help .warn{
+    border-left:3px solid var(--warn); background:rgba(217,164,65,.07);
+  }
+  .help .bad{
+    border-left:3px solid var(--err); background:rgba(224,98,94,.07);
+  }
+  .help .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .help ul{margin:6px 0; padding-left:20px}
+  .help li{margin:3px 0}
+  .help .muted{color:var(--dim)}
+
+  /* модалка */
+  .modal{
+    position:fixed; inset:0; background:rgba(6,8,10,.78); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:40; padding:20px;
+  }
+  .modal.on{display:flex}
+  .modal-box{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    width:min(760px,100%); max-height:88vh; display:flex; flex-direction:column;
+    box-shadow:0 24px 60px rgba(0,0,0,.6);
+  }
+  .modal-head{
+    display:flex; align-items:center; gap:10px; padding:12px 16px;
+    border-bottom:1px solid var(--line); flex:none;
+  }
+  .modal-title{font-weight:600; font-size:13.5px}
+  .modal-body{padding:14px 16px; overflow:auto; flex:1; min-height:0}
+  .modal-foot{
+    display:flex; align-items:center; gap:10px; padding:10px 16px;
+    border-top:1px solid var(--line); flex:none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">JAI <span>Bio</span> Studio</div>
+  <div class="sub" data-i18n="sub"></div>
+  <div class="spacer"></div>
+  <span class="stat" id="stat"></span>
+  <div class="seg" id="seg-lang">
+    <button data-lang="ru" class="on">RU</button>
+    <button data-lang="en">EN</button>
+  </div>
+  <button class="ghost sm" id="btn-help" title="F1">?</button>
+  <button class="ghost sm" id="btn-new" data-i18n="newProfile"></button>
+  <button class="ghost sm" id="btn-save" data-i18n="save"></button>
+</header>
+
+<main id="split">
+  <section id="pane-left">
+    <div class="toolbar">
+      <span class="label" data-i18n="font"></span>
+      <select id="fontsel"></select>
+      <button class="sm" id="btn-apply-font" data-i18n="insert"></button>
+      <div class="divider-v"></div>
+      <button class="sm" id="btn-img" data-i18n="image"></button>
+    </div>
+    <div class="toolbar" id="imgpanel">
+      <input id="img-url" placeholder="https://ella.janitorai.com/..." style="flex:1;min-width:180px" spellcheck="false">
+      <span class="label" data-i18n="maxWidth"></span>
+      <input id="img-w" type="number" value="320" min="40" max="1400" step="10">
+      <span class="label" data-i18n="radius"></span>
+      <input id="img-r" type="number" value="10" min="0" max="80" step="1">
+      <div class="divider-v"></div>
+      <button class="sm primary" id="btn-img-inline" data-i18n="insertInline"></button>
+      <button class="sm" id="btn-img-bg" data-i18n="insertBg"></button>
+      <button class="sm ghost" id="btn-img-close">✕</button>
+    </div>
+    <div class="toolbar">
+      <span class="label" data-i18n="snippets"></span>
+      <div class="snippets" id="snippets"></div>
+    </div>
+    <div id="editwrap">
+      <pre id="hl" aria-hidden="true"></pre>
+      <textarea id="code" spellcheck="false" autocomplete="off" wrap="off"></textarea>
+    </div>
+  </section>
+
+  <div id="divider"></div>
+
+  <section id="pane-right">
+    <div class="toolbar">
+      <span class="label" data-i18n="preview"></span>
+      <div class="seg" id="seg-mode">
+        <button data-mode="saved" class="on" data-i18n="modeSaved"></button>
+        <button data-mode="raw" data-i18n="modeRaw"></button>
+      </div>
+      <button class="ghost sm" id="btn-bg"></button>
+      <button class="ghost sm" id="btn-refresh" data-i18n="refresh"></button>
+    </div>
+    <iframe id="preview" title="preview"></iframe>
+  </section>
+</main>
+
+<div id="bottom">
+  <div class="tabs">
+    <button data-tab="issues" class="on"><span data-i18n="tabIssues"></span><span class="count" id="cnt-issues">0</span></button>
+    <button data-tab="report"><span data-i18n="tabSanitizer"></span><span class="count" id="cnt-report"></span></button>
+    <button data-tab="export"><span data-i18n="tabExport"></span></button>
+    <button data-tab="gallery"><span data-i18n="tabGallery"></span><span class="count" id="cnt-gal"></span></button>
+    <button data-tab="help"><span data-i18n="tabHelp"></span></button>
+    <div class="spacer"></div>
+    <button class="ghost" id="btn-collapse" title="⌄">⌄</button>
+  </div>
+  <div class="panes">
+    <div class="pane on" id="pane-issues"></div>
+
+    <div class="pane" id="pane-report"></div>
+
+    <div class="pane" id="pane-export">
+      <div class="row">
+        <span class="label" data-i18n="uuid"></span>
+        <input id="uuid" placeholder="07446625-25bc-4a60-af8f-693385106fd2" style="width:330px" spellcheck="false">
+        <span class="label" data-i18n="token"></span>
+        <input id="token" placeholder="—" style="width:230px" spellcheck="false">
+        <button class="sm" id="btn-get-token" data-i18n="getToken"></button>
+        <label class="hint" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="minify" checked> <span data-i18n="minify"></span>
+        </label>
+      </div>
+      <div class="row">
+        <button class="primary" id="btn-copy-script" data-i18n="copyScript"></button>
+        <button id="btn-copy-html" data-i18n="copyHtml"></button>
+        <button id="btn-copy-verify" data-i18n="copyVerify"></button>
+        <button id="btn-download" data-i18n="download"></button>
+        <span class="hint" id="token-state"></span>
+      </div>
+      <textarea id="out" spellcheck="false"></textarea>
+      <p class="hint" style="margin:6px 0 0" data-i18n="exportHint"></p>
+    </div>
+
+    <div class="pane" id="pane-gallery">
+      <div class="row">
+        <input id="gal-name" style="width:260px" spellcheck="false">
+        <button class="primary sm" id="btn-gal-save" data-i18n="saveAs"></button>
+        <div class="divider-v"></div>
+        <button class="sm" id="btn-gal-import" data-i18n="importJson"></button>
+        <button class="sm" id="btn-gal-export" data-i18n="exportJson"></button>
+        <button class="sm ghost danger" id="btn-gal-clear" data-i18n="clearAll"></button>
+        <input type="file" id="gal-file" accept="application/json" style="display:none">
+      </div>
+      <div class="gal" id="gal-list"></div>
+    </div>
+
+    <div class="pane" id="pane-help">
+      <div class="help" id="help-body"></div>
+    </div>
+  </div>
+</div>
+
+<div id="welcome" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title" data-i18n="welcomeTitle"></span>
+      <button class="ghost sm" id="welcome-close">✕</button>
+    </div>
+    <div class="modal-body" id="welcome-body"></div>
+    <div class="modal-foot">
+      <label class="hint" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="welcome-hide"> <span data-i18n="welcomeHide"></span>
+      </label>
+      <div class="spacer"></div>
+      <button class="primary sm" id="welcome-ok" data-i18n="welcomeOk"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------- i18n ----
+  var T = {
+    ru: {
+      sub: "превью с серверным санитайзером",
+      newProfile: "Черновик",
+      save: "Сохранить",
+      font: "Шрифт",
+      insert: "Вставить",
+      image: "Картинка",
+      maxWidth: "ширина, px",
+      radius: "радиус",
+      insertInline: "В текст",
+      insertBg: "Как фон",
+      snippets: "Сниппеты",
+      preview: "Превью",
+      modeSaved: "После санитайзера",
+      modeRaw: "Исходник",
+      bgDark: "Фон: тёмный",
+      bgLight: "Фон: светлый",
+      refresh: "Обновить",
+      tabIssues: "Проблемы",
+      tabSanitizer: "Санитайзер",
+      tabExport: "Экспорт",
+      tabGallery: "Галерея",
+      uuid: "UUID",
+      token: "Токен",
+      getToken: "Получить токен",
+      minify: "минифицировать",
+      copyScript: "Скопировать скрипт",
+      copyHtml: "HTML",
+      copyVerify: "Проверка",
+      download: "Скачать .html",
+      exportHint: "Открой страницу бота на janitorai.com → F12 → Console → вставь скрипт → Enter. Появится капча: закрой DevTools, реши, вернись. Потом F5.",
+      tokenEmpty: "Токен пуст — скрипт сам прочитает cookie на janitorai.com. Это надёжнее: он не протухнет.",
+      tokenSet: "Токен вставлен в скрипт. Живёт ~1 час.",
+      tokenExpired: "Этот токен уже истёк — возьми новый.",
+      saveAs: "Сохранить как",
+      importJson: "Импорт JSON",
+      exportJson: "Экспорт JSON",
+      clearAll: "Очистить всё",
+      galEmpty: "Пусто. Напиши имя и нажми «Сохранить как».",
+      open: "Открыть",
+      dup: "Дубль",
+      del: "Удалить",
+      cur: "текущий",
+      noIssues: "Проблем нет. Всё, что написано, выживет.",
+      copied: "Скопировано",
+      saved: "Сохранено",
+      deleted: "Удалено",
+      confirmDel: "Удалить профиль «{n}»?",
+      confirmClear: "Удалить все профили? Отменить будет нельзя.",
+      confirmReset: "Заменить текущий HTML стартовым шаблоном?",
+      reset: "Сброс",
+      namePrompt: "Имя профиля",
+      galNamePh: "имя профиля",
+      imgNoUrl: "Вставь ссылку на картинку",
+      imgHint: "Ссылку бери из галереи janitorai после модерации — вида https://ella.janitorai.com/...",
+      errStyle: "<style> вырезается сервером целиком — инлайн-стили единственный путь",
+      errScript: "<script> вырезается сервером целиком",
+      errLink: "<link> (свои шрифты) не выживает — только 14 шрифтов JAI",
+      errPos: "position удаляется сервером — наложений не будет; имитируй clip-path или отрицательным margin",
+      errZ: "z-index удаляется наивно, строкой — не используй даже в обычном тексте",
+      warnAnim: "animation и @keyframes — объявить keyframes негде",
+      warnVw: "100vw расползётся по всей странице у всех посетителей",
+      errJs: "javascript: блокируется CSP",
+      warnIframe: "<iframe> не поддерживается",
+      warnImgRel: "<img> с относительным src не загрузится — нужен абсолютный URL",
+      warnImgW: "<img> без max-width может распереть контейнер",
+      warnFont: "шрифт «{n}» не загружен на JAI — сработает подстановка",
+      badClose: "закрывающий тег </{n}> ничему не соответствует",
+      unclosed: "тег <{n}> не закрыт",
+      cutStyle: "<style> удалено: {n}",
+      cutScript: "<script> удалено: {n}",
+      cutLink: "<link> удалено: {n}",
+      cutZ: "«z-index» вырезано как текст: {n} (включая обычный текст)",
+      cutPos: "объявлений position/z-index удалено: {n} (в {m} тегах)",
+      cutNone: "ничего не вырезано — сохранится как написано",
+      sizeLine: "было {a} → станет {b}",
+      norm: "разметка нормализована парсером: кавычки, регистр тегов и порядок атрибутов могут отличаться — это не потеря",
+      big: "крупно",
+      tabHelp: "Гайд",
+      welcomeTitle: "С чего начать — пять шагов",
+      welcomeHide: "не показывать при запуске",
+      welcomeOk: "Понятно, начать",
+      welcomeBody: [
+        '<p>Этот файл превращает HTML в красивое био для JanitorAI и проверяет, что сервер не вырежет половину.</p>',
+        '<ol>',
+        '<li><b>Напиши HTML</b> слева. Можно вставить свои сниппеты кнопками сверху.</li>',
+        '<li><b>Вставь UUID бота</b> во вкладке «Экспорт». Он берётся из адреса: <code>janitorai.com/characters/<u>вот-это</u></code>.</li>',
+        '<li>Поле токена <b>оставь пустым</b> — скрипт сам прочитает его из cookie.</li>',
+        '<li>Нажми <b>«Скопировать скрипт»</b>.</li>',
+        '<li>Открой страницу бота на janitorai.com → <kbd>F12</kbd> → Console → вставь → <kbd>Enter</kbd>. Появится капча: <b>закрой DevTools</b>, реши, вернись, потом <kbd>F5</kbd>.</li>',
+        '</ol>',
+        '<p class="muted">Подробный гайд со всеми ошибками — во вкладке «Гайд» внизу.</p>'
+      ].join(""),
+      help: [
+        '<h3><span class="num">1</span> Что это и зачем</h3>',
+        '<div class="step"><p>Встроенный редактор JanitorAI при сохранении вырезает <code>&lt;style&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;link&gt;</code> и все объявления <code>position</code>. А ещё удаляет строку <code>z-index</code> наивным поиском — даже если это просто слово в тексте. При этом сам сайт потом рисует био без всякой чистки, как есть. Значит, чтобы получить нормальный дизайн, нужно записать HTML в базу в обход редактора — напрямую через API.</p>',
+        '<p>Этот файл делает две вещи: показывает, <b>что именно останется после серверной чистки</b> (правая панель), и собирает готовый скрипт для отправки.</p></div>',
+
+        '<h3><span class="num">2</span> Шаг 1 — напиши HTML</h3>',
+        '<div class="step"><p>Пиши в левой панели. Можно начать с заготовки, которая уже там, и заменять текст на свой.</p>',
+        '<p>Сверху кнопки, которые вставляют готовые блоки по курсору: <b>плашка</b>, <b>сетка</b>, <b>разделитель</b>, <b>стекло</b>, <b>рамка</b>, <b>срез</b>, <b>градиент</b>, <b>колонки</b>, <b>вымарка</b>, <b>досье-строка</b>, <b>дата-блок</b>. Кнопка <b>«Шрифт»</b> оборачивает выделенный текст в нужный шрифт.</p>',
+        '<p class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> — обновить превью сразу. <kbd>Tab</kbd> — отступ. <kbd>Ctrl</kbd>+<kbd>S</kbd> — сохранить профиль.</p></div>',
+
+        '<h3><span class="num">3</span> Шаг 2 — картинки</h3>',
+        '<div class="step"><p>Кнопка <b>«Картинка»</b> открывает поле для ссылки. Ссылку берут из галереи janitorai <b>после модерации</b> — она выглядит так: <code>https://ella.janitorai.com/media-approved/XXXX.webp</code>. Пока картинка не прошла модерацию, ссылки нет, и вставить её не получится.</p>',
+        '<p>Два варианта вставки: <b>«В текст»</b> — обычный <code>&lt;img&gt;</code> с ограничением ширины, <b>«Как фон»</b> — блок с картинкой на фоне. Ширину и скругление можно задать числами.</p>',
+        '<p class="warn">Никогда не ставь <code>&lt;img&gt;</code> без <code>max-width</code> — картинка распрёт контейнер и сломает страницу у всех посетителей.</p></div>',
+
+        '<h3><span class="num">4</span> Шаг 3 — вкладка «Экспорт»</h3>',
+        '<div class="step"><p><b>UUID</b> — идентификатор бота. Открой своего бота и посмотри адрес: <code>janitorai.com/characters/07446625-25bc-4a60-af8f-693385106fd2_character-имя</code>. Нужна часть до <code>_character</code>. UUID не меняется никогда: ни при смене имени, ни аватарки, ни приватности.</p>',
+        '<p><b>Токен оставь пустым.</b> Так скрипт прочитает сессию сам, прямо на сайте, и ничего не протухнет. Заполнять его нужно только если хочешь отправить запрос из другого места.</p>',
+        '<p>Галочка <b>«минифицировать»</b> сжимает HTML — оставь включённой.</p>',
+        '<p>Жми <b>«Скопировать скрипт»</b>.</p></div>',
+
+        '<h3><span class="num">5</span> Шаг 4 — запуск на сайте</h3>',
+        '<div class="step">',
+        '<p><b>1.</b> Открой страницу своего бота на janitorai.com и убедись, что ты залогинен.</p>',
+        '<p><b>2.</b> Нажми <kbd>F12</kbd> (или <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>). Откроется панель разработчика. Перейди на вкладку <b>Console</b>.</p>',
+        '<p><b>3.</b> Вставь скрипт в строку ввода внизу консоли. Браузер может спросить «вставить?» — разреши, набрав <code>allow pasting</code> и <kbd>Enter</kbd>, если попросит.</p>',
+        '<p><b>4.</b> Нажми <kbd>Enter</kbd>. Появится окно <b>«Security Verification»</b> с капчей Cloudflare.</p>',
+        '<p><b>5.</b> <b>Закрой DevTools</b> (F12 ещё раз или крестик). Это обязательно: Cloudflare видит открытые инструменты разработчика и отказывается проверять. Капча останется на экране — реши её.</p>',
+        '<p><b>6.</b> Вернись в консоль (<kbd>F12</kbd>) и посмотри результат: должно быть <code>200 OK</code>. Если так — жми <kbd>F5</kbd> и любуйся.</p>',
+        '<p class="warn">На решение капчи есть минута. Не успел — просто запусти скрипт заново.</p></div>',
+
+        '<h3><span class="num">6</span> Шаг 5 — проверка, что сохранилось</h3>',
+        '<div class="step"><p>Кнопка <b>«Проверка»</b> копирует второй сниппет. Он загружает сохранённое био обратно и печатает в консоль сырой HTML. Сравни его с тем, что писал, — так видно, что сервер вырезал на самом деле.</p>',
+        '<p>Это стоит делать, если дизайн на сайте выглядит не так, как в превью.</p></div>',
+
+        '<h3><span class="num">7</span> Типичные ошибки</h3>',
+        '<div class="step">',
+        '<p><b>«session cookie not found»</b> — ты не на janitorai.com или не залогинен. Открой страницу бота на этом домене и запусти снова.</p>',
+        '<p><b>«access token expired»</b> — токен в поле протух. Нажми <kbd>F5</kbd> на сайте и запусти скрипт заново, либо очисти поле токена.</p>',
+        '<p><b>«Turnstile is not loaded»</b> — скрипт запущен не на странице бота (например, на главной). Перейди на страницу бота.</p>',
+        '<p><b>403 или «turnstile»</b> — не закрыл DevTools вовремя, капча не прошла. Запусти заново и закрой инструменты сразу, как появится окно.</p>',
+        '<p><b>401</b> — токен не тот или протух. Очисти поле токена и дай скрипту прочитать сессию.</p>',
+        '<p><b>Дизайн на сайте сломан, а в превью нормально</b> — посмотри вкладку «Проблемы»: скорее всего ты используешь <code>position</code>, <code>z-index</code> или шрифт, которого нет на сайте.</p>',
+        '</div>',
+
+        '<h3><span class="num">8</span> Что нельзя и чем заменить</h3>',
+        '<div class="step"><div class="grid2">',
+        '<div><p><b>Не работает</b></p><ul>',
+        '<li><code>&lt;style&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;link&gt;</code></li>',
+        '<li><code>position</code> — любые значения</li>',
+        '<li><code>z-index</code> — даже как слово в тексте</li>',
+        '<li><code>animation</code> и <code>@keyframes</code></li>',
+        '<li>свои шрифты через <code>&lt;link&gt;</code></li>',
+        '<li>наложение элементов друг на друга</li>',
+        '</ul></div>',
+        '<div><p><b>Замена</b></p><ul>',
+        '<li>инлайн-стили <code>style="..."</code> — работают</li>',
+        '<li>наложение → <code>clip-path</code>, отрицательный <code>margin</code>, SVG-фон</li>',
+        '<li>слои → <code>background-image</code> через запятую</li>',
+        '<li>анимация → статичный градиент</li>',
+        '<li>шрифты → 14 шрифтов JAI (см. список ниже)</li>',
+        '</ul></div>',
+        '</div>',
+        '<p style="margin-top:8px"><b>Шрифты, которые точно есть:</b> Inter, JetBrains Mono, Jura, Poppins, Fraunces, Crimson Text, Lexend, Berkshire Swash, Dancing Script, Monoton, Press Start 2P, Rock Salt, VT323, Noto Sans JP.</p>',
+        '</div>',
+
+        '<h3><span class="num">9</span> Скрипты и лорбуки</h3>',
+        '<div class="step"><p>У них другой эндпоинт (<code>PUT /hampter/script/{uuid}/content</code>, дважды: черновик и публикация) и капча не нужна. Этот файл собирает скрипт только для персонажей.</p>',
+        '<p class="bad">Важно: на страницах скриптов запускай обновление со страницы просмотра <code>/scripts/{uuid}</code> и проверяй результат через <kbd>F5</kbd>. Если зайти в свой скрипт кликом внутри сайта, редактор подгрузит черновик и тихо перезапишет твой HTML своей урезанной версией.</p></div>',
+
+        '<h3><span class="num">10</span> Безопасность</h3>',
+        '<div class="step"><p>Токен — это полный доступ к твоему аккаунту на час. Никому не отправляй его, не вставляй в чужие скрипты из комментариев и не выкладывай в pastebin.</p>',
+        '<p>Профили хранятся в этом браузере в <code>localStorage</code> без шифрования. Экспортированный JSON содержит твой текст био — не раздавай его, если там что-то личное.</p>',
+        '<p class="muted">Файл работает локально: никуда не отправляет данные, кроме единственного запроса к Google Fonts за шрифтами для превью.</p></div>'
+      ].join(""),
+    },
+    en: {
+      sub: "preview with the server sanitizer",
+      newProfile: "Draft",
+      save: "Save",
+      font: "Font",
+      insert: "Insert",
+      image: "Image",
+      maxWidth: "width, px",
+      radius: "radius",
+      insertInline: "Inline",
+      insertBg: "As background",
+      snippets: "Snippets",
+      preview: "Preview",
+      modeSaved: "After sanitizer",
+      modeRaw: "Source",
+      bgDark: "Bg: dark",
+      bgLight: "Bg: light",
+      refresh: "Refresh",
+      tabIssues: "Issues",
+      tabSanitizer: "Sanitizer",
+      tabExport: "Export",
+      tabGallery: "Gallery",
+      uuid: "UUID",
+      token: "Token",
+      getToken: "Get token",
+      minify: "minify",
+      copyScript: "Copy script",
+      copyHtml: "HTML",
+      copyVerify: "Verify",
+      download: "Download .html",
+      exportHint: "Open your bot page on janitorai.com → F12 → Console → paste the script → Enter. A captcha appears: close DevTools, solve it, come back. Then press F5.",
+      tokenEmpty: "Token empty — the script reads the cookie on janitorai.com itself. Safer: it cannot expire.",
+      tokenSet: "Token is baked into the script. Good for ~1 hour.",
+      tokenExpired: "This token already expired — grab a fresh one.",
+      saveAs: "Save as",
+      importJson: "Import JSON",
+      exportJson: "Export JSON",
+      clearAll: "Clear all",
+      galEmpty: "Nothing yet. Type a name and hit Save as.",
+      open: "Open",
+      dup: "Dup",
+      del: "Delete",
+      cur: "current",
+      noIssues: "No issues. Everything here will survive.",
+      copied: "Copied",
+      saved: "Saved",
+      deleted: "Deleted",
+      confirmDel: "Delete profile \"{n}\"?",
+      confirmClear: "Delete every profile? This cannot be undone.",
+      confirmReset: "Replace current HTML with the starter template?",
+      reset: "Reset",
+      namePrompt: "Profile name",
+      galNamePh: "profile name",
+      imgNoUrl: "Paste an image URL",
+      imgHint: "Grab the URL from the janitorai gallery after moderation — it looks like https://ella.janitorai.com/...",
+      errStyle: "<style> is stripped whole — inline styles are the only way",
+      errScript: "<script> is stripped whole",
+      errLink: "<link> (custom fonts) does not survive — only the 14 JAI fonts do",
+      errPos: "position is stripped — no overlapping; fake it with clip-path or a negative margin",
+      errZ: "z-index is stripped with a naive text replace — never use the word, not even in body text",
+      warnAnim: "animation and @keyframes — there is nowhere to declare keyframes",
+      warnVw: "100vw will overflow the container on every visitor's page",
+      errJs: "javascript: is blocked by CSP",
+      warnIframe: "<iframe> is not supported",
+      warnImgRel: "<img> with a relative src will not load — needs an absolute URL",
+      warnImgW: "<img> without max-width can blow the container apart",
+      warnFont: "font \"{n}\" is not loaded on JAI — fallback will kick in",
+      badClose: "closing </{n}> matches nothing",
+      unclosed: "<{n}> is never closed",
+      cutStyle: "<style> removed: {n}",
+      cutScript: "<script> removed: {n}",
+      cutLink: "<link> removed: {n}",
+      cutZ: "\"z-index\" cut as text: {n} (including body text)",
+      cutPos: "position/z-index declarations removed: {n} (in {m} tags)",
+      cutNone: "nothing was stripped — saved exactly as written",
+      sizeLine: "{a} → {b}",
+      norm: "markup normalized by the parser: quotes, tag case and attribute order may differ — that is not a loss",
+      big: "large",
+      tabHelp: "Guide",
+      welcomeTitle: "Getting started — five steps",
+      welcomeHide: "do not show on startup",
+      welcomeOk: "Got it",
+      welcomeBody: [
+        '<p>This file turns HTML into a good-looking JanitorAI bio and checks that the server will not strip half of it.</p>',
+        '<ol>',
+        '<li><b>Write HTML</b> on the left. Or insert ready-made blocks with the buttons above.</li>',
+        '<li><b>Paste the bot UUID</b> on the Export tab. It is the part of the URL: <code>janitorai.com/characters/<u>this-part</u></code>.</li>',
+        '<li>Leave the token field <b>empty</b> — the script reads it from the cookie itself.</li>',
+        '<li>Press <b>Copy script</b>.</li>',
+        '<li>Open your bot page on janitorai.com → <kbd>F12</kbd> → Console → paste → <kbd>Enter</kbd>. A captcha appears: <b>close DevTools</b>, solve it, come back, then <kbd>F5</kbd>.</li>',
+        '</ol>',
+        '<p class="muted">The full guide with every error is on the Guide tab at the bottom.</p>'
+      ].join(""),
+      help: [
+        '<h3><span class="num">1</span> What this is and why</h3>',
+        '<div class="step"><p>JanitorAI\'s built-in editor strips <code>&lt;style&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;link&gt;</code> and every <code>position</code> declaration when a bio is saved. It also removes the string <code>z-index</code> with a naive search — even when it is just a word in your body text. Meanwhile the site renders the stored bio raw, with no sanitizing at all. So to get a real design, the HTML has to reach the database around the editor — straight through the API.</p>',
+        '<p>This file does two things: it shows <b>exactly what survives the server pass</b> (right panel), and it builds a ready-to-paste script.</p></div>',
+
+        '<h3><span class="num">2</span> Step 1 — write the HTML</h3>',
+        '<div class="step"><p>Type in the left panel. You can start from the template that is already there and swap the text.</p>',
+        '<p>The buttons on top insert ready blocks at the cursor: <b>pill</b>, <b>grid</b>, <b>divider</b>, <b>glass</b>, <b>border</b>, <b>clip</b>, <b>gradient</b>, <b>columns</b>, <b>redacted</b>, <b>dossier row</b>, <b>stat bar</b>. The <b>Font</b> button wraps the selected text in the font you pick.</p>',
+        '<p class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> — re-render right away. <kbd>Tab</kbd> — indent. <kbd>Ctrl</kbd>+<kbd>S</kbd> — save the profile.</p></div>',
+
+        '<h3><span class="num">3</span> Step 2 — images</h3>',
+        '<div class="step"><p>The <b>Image</b> button opens a URL field. Take the link from the janitorai gallery <b>after moderation</b> — it looks like <code>https://ella.janitorai.com/media-approved/XXXX.webp</code>. Until the image is approved there is no link, so nothing can be inserted.</p>',
+        '<p>Two ways in: <b>Inline</b> gives a plain <code>&lt;img&gt;</code> with a width cap, <b>As background</b> gives a block with the picture as its background. Width and radius are set with the number fields.</p>',
+        '<p class="warn">Never use an <code>&lt;img&gt;</code> without <code>max-width</code> — it will blow the container apart for every visitor.</p></div>',
+
+        '<h3><span class="num">4</span> Step 3 — the Export tab</h3>',
+        '<div class="step"><p><b>UUID</b> is the bot id. Open your bot and read the address: <code>janitorai.com/characters/07446625-25bc-4a60-af8f-693385106fd2_character-name</code>. You need the part before <code>_character</code>. The UUID never changes — not with a new name, avatar or visibility setting.</p>',
+        '<p><b>Leave the token empty.</b> The script then reads your session on the site itself, so nothing can expire. Fill it in only if you want to send the request from somewhere else.</p>',
+        '<p>The <b>minify</b> checkbox compresses the HTML — keep it on.</p>',
+        '<p>Press <b>Copy script</b>.</p></div>',
+
+        '<h3><span class="num">5</span> Step 4 — run it on the site</h3>',
+        '<div class="step">',
+        '<p><b>1.</b> Open your bot page on janitorai.com and make sure you are logged in.</p>',
+        '<p><b>2.</b> Press <kbd>F12</kbd> (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>). The devtools open. Switch to the <b>Console</b> tab.</p>',
+        '<p><b>3.</b> Paste the script into the input line at the bottom of the console. The browser may ask about pasting — if it does, type <code>allow pasting</code> and hit <kbd>Enter</kbd>.</p>',
+        '<p><b>4.</b> Press <kbd>Enter</kbd>. A <b>Security Verification</b> overlay with a Cloudflare captcha appears.</p>',
+        '<p><b>5.</b> <b>Close DevTools</b> (F12 again, or the ✕). This is mandatory: Cloudflare detects open devtools and refuses to verify. The captcha stays on screen — solve it.</p>',
+        '<p><b>6.</b> Come back to the console (<kbd>F12</kbd>) and check the result: it should say <code>200 OK</code>. If it does, press <kbd>F5</kbd> and enjoy.</p>',
+        '<p class="warn">You have one minute to solve the captcha. Too slow? Just run the script again.</p></div>',
+
+        '<h3><span class="num">6</span> Step 5 — verify what was stored</h3>',
+        '<div class="step"><p>The <b>Verify</b> button copies a second snippet. It fetches the saved bio back and prints the raw HTML into the console. Compare it with what you wrote — that is how you see what the server really cut.</p>',
+        '<p>Worth doing whenever the site looks different from the preview.</p></div>',
+
+        '<h3><span class="num">7</span> Common errors</h3>',
+        '<div class="step">',
+        '<p><b>"session cookie not found"</b> — you are not on janitorai.com, or not logged in. Open the bot page on that domain and run again.</p>',
+        '<p><b>"access token expired"</b> — the token in the field went stale. Press <kbd>F5</kbd> on the site and rerun, or just clear the token field.</p>',
+        '<p><b>"Turnstile is not loaded"</b> — the script ran somewhere other than a bot page (the home page, for instance). Go to the bot page.</p>',
+        '<p><b>403 or a "turnstile" error</b> — DevTools were still open when the captcha loaded. Rerun and close the devtools the moment the overlay appears.</p>',
+        '<p><b>401</b> — wrong or expired token. Clear the field and let the script read the session.</p>',
+        '<p><b>Broken on the site, fine in the preview</b> — check the Issues tab: most likely you used <code>position</code>, <code>z-index</code>, or a font the site does not load.</p>',
+        '</div>',
+
+        '<h3><span class="num">8</span> What does not work, and what replaces it</h3>',
+        '<div class="step"><div class="grid2">',
+        '<div><p><b>Does not work</b></p><ul>',
+        '<li><code>&lt;style&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;link&gt;</code></li>',
+        '<li><code>position</code> — any value</li>',
+        '<li><code>z-index</code> — even as a word in text</li>',
+        '<li><code>animation</code> and <code>@keyframes</code></li>',
+        '<li>custom fonts via <code>&lt;link&gt;</code></li>',
+        '<li>overlapping elements</li>',
+        '</ul></div>',
+        '<div><p><b>Use instead</b></p><ul>',
+        '<li>inline styles <code>style="..."</code> — these work</li>',
+        '<li>overlap → <code>clip-path</code>, negative <code>margin</code>, SVG background</li>',
+        '<li>layers → comma-separated <code>background-image</code></li>',
+        '<li>animation → a static gradient</li>',
+        '<li>fonts → the 14 JAI ones (list below)</li>',
+        '</ul></div>',
+        '</div>',
+        '<p style="margin-top:8px"><b>Fonts that are definitely there:</b> Inter, JetBrains Mono, Jura, Poppins, Fraunces, Crimson Text, Lexend, Berkshire Swash, Dancing Script, Monoton, Press Start 2P, Rock Salt, VT323, Noto Sans JP.</p>',
+        '</div>',
+
+        '<h3><span class="num">9</span> Scripts and lorebooks</h3>',
+        '<div class="step"><p>They use a different endpoint (<code>PUT /hampter/script/{uuid}/content</code>, twice: draft and published) and need no captcha. This file only builds the character script.</p>',
+        '<p class="bad">Important: on script pages, run the update from the view page <code>/scripts/{uuid}</code> and check the result with <kbd>F5</kbd>. Navigating into your own script by clicking inside the site makes the editor load the draft and silently overwrite your HTML with a stripped-down version.</p></div>',
+
+        '<h3><span class="num">10</span> Security</h3>',
+        '<div class="step"><p>The token is full access to your account for about an hour. Never send it to anyone, paste it into scripts from comments, or drop it in a pastebin.</p>',
+        '<p>Profiles live in this browser\'s <code>localStorage</code> unencrypted. An exported JSON contains your bio text — do not hand it out if it holds anything private.</p>',
+        '<p class="muted">The file runs locally: it sends nothing anywhere except one Google Fonts request for the preview typefaces.</p></div>'
+      ].join(""),
+    }
+  };
+
+  var lang = "ru";
+  function t(key, vars) {
+    var s = (T[lang] && T[lang][key]) || (T.ru[key] !== undefined ? T.ru[key] : "");
+    if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
+    return s;
+  }
+
+  // ------------------------------------------------------------- constants ---
+  var FONTS = [
+    { name: "Inter" }, { name: "JetBrains Mono" }, { name: "Jura" }, { name: "Poppins" },
+    { name: "Fraunces" }, { name: "Crimson Text" }, { name: "Lexend" },
+    { name: "Berkshire Swash" }, { name: "Dancing Script" }, { name: "Monoton" },
+    { name: "Press Start 2P" }, { name: "Rock Salt" }, { name: "VT323" }, { name: "Noto Sans JP" }
+  ];
+  var FONT_NAMES = FONTS.map(function (f) { return f.name; });
+
+  var FONT_URL = "https://fonts.googleapis.com/css2?" + [
+    "Inter:wght@400;500;600;700", "JetBrains+Mono:wght@400;500;600;700",
+    "Jura:wght@300;400;600;700", "Poppins:ital,wght@0,300;0,400;0,600;0,700;1,400",
+    "Fraunces:ital,wght@0,400;0,500;0,600;0,700;1,400",
+    "Crimson+Text:ital,wght@0,400;0,600;0,700;1,400", "Lexend:wght@300;400;500;600;700",
+    "Berkshire+Swash", "Dancing+Script:wght@400;500;600;700", "Monoton",
+    "Press+Start+2P", "Rock Salt", "VT323", "Noto+Sans+JP:wght@400;500;700"
+  ].map(function (f) { return "family=" + f; }).join("&") + "&display=swap";
+
+  var VOID = ("area base br col embed hr img input link meta param source track wbr").split(" ");
+
+  var SNIPPETS = [
+    { ru: "плашка", en: "pill",
+      html: '<span style="background-color: rgb(138,184,112); color: #0c0e12; padding: 0.25rem 0.75rem; border-radius: 999px; font-family: Jura; font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;">тег</span>' },
+    { ru: "сетка 2", en: "grid 2",
+      html: '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">\n  <p style="margin: 0;">Left column.</p>\n  <p style="margin: 0;">Right column.</p>\n</div>' },
+    { ru: "разделитель", en: "divider",
+      html: '<p style="height: 2px; margin: 1rem 0; background-image: linear-gradient(to right, #8ab870, #7088b8); background-repeat: no-repeat; background-size: 100% 2px;"></p>' },
+    { ru: "стекло", en: "glass",
+      html: '<p style="backdrop-filter: blur(4px); background-color: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 0.5rem; padding: 1rem; color: white; margin: 0;">Frosted panel text.</p>' },
+    { ru: "рамка", en: "border",
+      html: '<p style="border-image: linear-gradient(to right, #8ab870, #7088b8) 1; border-style: solid; border-width: 2px; padding: 1rem; margin: 0;">Gradient border.</p>' },
+    { ru: "срез", en: "clip",
+      html: '<p style="clip-path: polygon(0 0, 100% 0, 100% 80%, 0 100%); background-color: rgb(138,184,112); padding: 2rem; color: white; margin: 0;">Diagonal edge.</p>' },
+    { ru: "градиент", en: "gradient",
+      html: '<p style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), linear-gradient(to right, #8ab870, #7088b8); padding: 2rem; color: white; margin: 0;">Text over layered gradient.</p>' },
+    { ru: "колонки", en: "columns",
+      html: '<p style="column-count: 2; column-gap: 2rem; font-family: Inter; font-size: 0.85rem; line-height: 1.6; margin: 0;">Multi-column body copy. Long enough to actually split into two columns in the browser.</p>' },
+    { ru: "вымарка", en: "redacted",
+      html: '<span style="display: inline-block; background-color: #1c1c1c; color: transparent; border-radius: 1px; padding: 0 3rem;">██████</span>' },
+    { ru: "досье-строка", en: "dossier row",
+      html: '<div style="display: grid; grid-template-columns: 155px 1fr; font-size: 0.8rem;">\n  <div style="border-bottom: 1px dotted #b3aa95; padding: 0.42rem 0; font-family: Jura; font-size: 0.66rem; letter-spacing: 0.13em; text-transform: uppercase; color: #6b6152;">Field</div>\n  <div style="border-bottom: 1px dotted #b3aa95; padding: 0.42rem 0;">Value</div>\n</div>' },
+    { ru: "дата-блок", en: "stat bar",
+      html: '<div style="display: flex; gap: 1rem; flex-wrap: wrap;">\n  <div style="flex: 1; min-width: 110px; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 0.7rem 0.9rem; background-color: rgba(255,255,255,0.04);">\n    <p style="font-family: Jura; font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8ab870; margin: 0 0 0.2rem;">Label</p>\n    <p style="margin: 0; font-size: 0.9rem;">Value</p>\n  </div>\n</div>' }
+  ];
+
+  var STARTER =
+'<div style="font-family: Inter; max-width: 720px; margin: 0 auto; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; background-image: linear-gradient(rgba(12,14,18,0.88), rgba(12,14,18,0.94)), linear-gradient(135deg, #8ab870, #7088b8); color: #e8e4dc;">\n' +
+'  <p style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.75rem;">\n' +
+'    <span style="background-color: rgb(138,184,112); color: #0c0e12; padding: 0.25rem 0.75rem; border-radius: 999px; font-family: Jura; font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;">Slow Burn</span>\n' +
+'  </p>\n' +
+'  <p style="font-family: Fraunces; font-size: 1.9rem; font-weight: 600; line-height: 1.15; margin: 0 0 0.25rem; color: #ffffff;">Heading</p>\n' +
+'  <p style="font-family: Jura; font-size: 0.8rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(138,184,112); margin: 0 0 1.25rem;">subheading</p>\n' +
+'  <p style="margin: 0; font-size: 0.9rem; line-height: 1.65;">Start typing here. On the right — what actually survives the server sanitizer.</p>\n' +
+'</div>';
+
+  // ------------------------------------------------------------------ dom ----
+  var $ = function (id) { return document.getElementById(id); };
+  var code = $("code"), hl = $("hl"), preview = $("preview");
+  var left = $("pane-left"), right = $("pane-right"), split = $("split"), bottom = $("bottom");
+
+  var state = {
+    mode: "saved", bg: "dark", timer: null,
+    profiles: [], currentId: null, hideWelcome: false
+  };
+
+  var STORE = "jai-bio-studio.v2";
+
+  // -------------------------------------------------------------- helpers ----
+  function lineOf(text, index) {
+    var n = 1;
+    for (var i = 0; i < index && i < text.length; i++) if (text.charCodeAt(i) === 10) n++;
+    return n;
+  }
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function bytes(s) { return new TextEncoder().encode(s).length; }
+  function fmtSize(n) { return n < 1024 ? n + " B" : (n / 1024).toFixed(1) + " KB"; }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  // ------------------------------------------------------------ highlight ----
+  function highlight(src) {
+    var out = "", i = 0, m;
+    var re = /<!--[\s\S]*?-->|<\/?[a-zA-Z][\w:-]*(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
+    while ((m = re.exec(src)) !== null) {
+      out += esc(src.slice(i, m.index));
+      var chunk = m[0];
+      if (chunk.indexOf("<!--") === 0) {
+        out += '<span class="t-cmt">' + esc(chunk) + "</span>";
+      } else {
+        out += colorTag(chunk);
+      }
+      i = m.index + chunk.length;
+    }
+    out += esc(src.slice(i));
+    return out;
+  }
+  function colorTag(chunk) {
+    // <name attr="v" attr2>
+    var m = chunk.match(/^(<\/?)([a-zA-Z][\w:-]*)([\s\S]*?)(\/?>)$/);
+    if (!m) return esc(chunk);
+    var tail = m[3];
+    var rendered = "";
+    var are = /([a-zA-Z_:][\w:.-]*)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'>]+)?|\s+|\//g;
+    var am, last = 0;
+    while ((am = are.exec(tail)) !== null) {
+      if (am[0] === "") { are.lastIndex++; continue; }
+      if (am[1]) {
+        rendered += '<span class="t-attr">' + esc(am[1]) + "</span>" + esc(am[2] || "");
+        if (am[3]) rendered += '<span class="t-str">' + esc(am[3]) + "</span>";
+      } else {
+        rendered += esc(am[0]);
+      }
+      last = are.lastIndex;
+    }
+    rendered += esc(tail.slice(last));
+    return '<span class="t-punct">' + esc(m[1]) + "</span>" +
+      '<span class="t-tag">' + esc(m[2]) + "</span>" + rendered +
+      '<span class="t-punct">' + esc(m[4]) + "</span>";
+  }
+
+  // ---------------------------------------------------------------- lint -----
+  var RULES = [
+    { re: /<style\b/gi, lv: "error", key: "errStyle" },
+    { re: /<script\b/gi, lv: "error", key: "errScript" },
+    { re: /<link\b/gi, lv: "error", key: "errLink" },
+    { re: /(?:^|;|["'\s])position\s*:/gi, lv: "error", key: "errPos" },
+    { re: /z-index/gi, lv: "error", key: "errZ" },
+    { re: /\banimation\b|@keyframes/gi, lv: "warn", key: "warnAnim" },
+    { re: /100vw/gi, lv: "warn", key: "warnVw" },
+    { re: /javascript:/gi, lv: "error", key: "errJs" },
+    { re: /<iframe\b/gi, lv: "warn", key: "warnIframe" },
+    { re: /<img\b(?![^>]*https?:)/gi, lv: "warn", key: "warnImgRel" }
+  ];
+
+  function checkTags(raw) {
+    var issues = [];
+    var re = /<\/?([a-zA-Z][\w:-]*)(?:"[^"]*"|'[^']*'|[^>])*?(\/?)>/g, m;
+    var stack = [];
+    while ((m = re.exec(raw)) !== null) {
+      var name = m[1].toLowerCase();
+      if (name === "!doctype" || VOID.indexOf(name) !== -1 || m[2] === "/") continue;
+      var isClose = m[0].charAt(1) === "/";
+      if (!isClose) {
+        stack.push({ name: name, index: m.index });
+      } else {
+        var at = -1;
+        for (var j = stack.length - 1; j >= 0; j--) if (stack[j].name === name) { at = j; break; }
+        if (at === -1) {
+          issues.push({ line: lineOf(raw, m.index), lv: "error", msg: t("badClose", { n: name }) });
+        } else {
+          for (var k = stack.length - 1; k > at; k--) {
+            issues.push({ line: lineOf(raw, stack[k].index), lv: "warn", msg: t("unclosed", { n: stack[k].name }) });
+          }
+          stack.length = at;
+        }
+      }
+    }
+    for (var s = 0; s < stack.length; s++) {
+      issues.push({ line: lineOf(raw, stack[s].index), lv: "warn", msg: t("unclosed", { n: stack[s].name }) });
+    }
+    return issues;
+  }
+
+  function lint(raw) {
+    var issues = [];
+    RULES.forEach(function (r) {
+      var m;
+      r.re.lastIndex = 0;
+      while ((m = r.re.exec(raw)) !== null) {
+        issues.push({ line: lineOf(raw, m.index), lv: r.lv, msg: t(r.key) });
+        if (m.index === r.re.lastIndex) r.re.lastIndex++;
+      }
+    });
+
+    var fre = /font-family\s*:\s*([^;}"']+)/gi, fm;
+    while ((fm = fre.exec(raw)) !== null) {
+      var first = fm[1].split(",")[0].replace(/['"]/g, "").trim();
+      if (first && FONT_NAMES.indexOf(first) === -1 &&
+          ["sans-serif", "serif", "monospace", "cursive", "system-ui", "inherit"].indexOf(first.toLowerCase()) === -1) {
+        issues.push({ line: lineOf(raw, fm.index), lv: "warn", msg: t("warnFont", { n: first }) });
+      }
+    }
+
+    var ire = /<img\b[^>]*>/gi, im;
+    while ((im = ire.exec(raw)) !== null) {
+      if (!/max-width/i.test(im[0])) issues.push({ line: lineOf(raw, im.index), lv: "warn", msg: t("warnImgW") });
+    }
+
+    issues = issues.concat(checkTags(raw));
+    issues.sort(function (a, b) { return a.line - b.line; });
+
+    var seen = {}, out = [];
+    issues.forEach(function (i) {
+      var k = i.line + "|" + i.msg;
+      if (!seen[k]) { seen[k] = 1; out.push(i); }
+    });
+    return out;
+  }
+
+  // ------------------------------------------------------------- sanitize ----
+  function sanitize(raw) {
+    var counts = {
+      style: (raw.match(/<style\b/gi) || []).length,
+      script: (raw.match(/<script\b/gi) || []).length,
+      link: (raw.match(/<link\b/gi) || []).length,
+      zindex: (raw.match(/z-index/g) || []).length
+    };
+
+    var s = raw.replace(/z-index/g, "");
+    var doc = new DOMParser().parseFromString(s, "text/html");
+
+    ["style", "script", "link"].forEach(function (tag) {
+      var nodes = doc.querySelectorAll(tag);
+      for (var i = nodes.length - 1; i >= 0; i--) nodes[i].remove();
+    });
+
+    var posRemoved = 0, styleRewrites = 0;
+    var styled = doc.querySelectorAll("[style]");
+    for (var i = 0; i < styled.length; i++) {
+      var el = styled[i], changed = false;
+      if (el.style.position) { el.style.removeProperty("position"); posRemoved++; changed = true; }
+      if (el.style.zIndex) { el.style.removeProperty("z-index"); posRemoved++; changed = true; }
+      if (changed) {
+        styleRewrites++;
+        if (!el.getAttribute("style") || !el.getAttribute("style").trim()) el.removeAttribute("style");
+      }
+    }
+
+    var html = doc.body ? doc.body.innerHTML : "";
+    var report = [];
+    if (counts.style) report.push({ lv: "error", msg: t("cutStyle", { n: counts.style }) });
+    if (counts.script) report.push({ lv: "error", msg: t("cutScript", { n: counts.script }) });
+    if (counts.link) report.push({ lv: "error", msg: t("cutLink", { n: counts.link }) });
+    if (counts.zindex) report.push({ lv: "error", msg: t("cutZ", { n: counts.zindex }) });
+    if (posRemoved) report.push({ lv: "error", msg: t("cutPos", { n: posRemoved, m: styleRewrites }) });
+    if (!report.length) report.push({ lv: "ok", msg: t("cutNone") });
+    report.push({ lv: "ok", msg: t("sizeLine", { a: fmtSize(bytes(raw)), b: fmtSize(bytes(html)) }) });
+    report.push({ lv: "ok", msg: t("norm") });
+
+    return { html: html, report: report };
+  }
+
+  // ------------------------------------------------------------- preview -----
+  function buildDoc(body, bg) {
+    var dark = bg !== "light";
+    return "<!doctype html><html><head><meta charset=\"utf-8\">" +
+      "<link rel=\"stylesheet\" href=\"" + FONT_URL + "\">" +
+      "<style>html,body{margin:0}*{box-sizing:border-box}" +
+      "body{padding:22px;background:" + (dark ? "#16181b" : "#f2f1ec") + ";color:" + (dark ? "#d8dde5" : "#242220") + ";" +
+      "font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5;word-wrap:break-word}" +
+      "a{color:#8ab8d8}</style></head><body>" + body + "</body></html>";
+  }
+
+  // -------------------------------------------------------------- render -----
+  function render() {
+    var raw = code.value;
+
+    hl.innerHTML = highlight(raw) + "\n";
+    hl.scrollTop = code.scrollTop;
+    hl.scrollLeft = code.scrollLeft;
+
+    var res = sanitize(raw);
+    var issues = lint(raw);
+
+    preview.srcdoc = buildDoc(state.mode === "saved" ? res.html : raw, state.bg);
+
+    var savedBytes = bytes(res.html);
+    $("stat").innerHTML = "<b>" + fmtSize(savedBytes) + "</b> · " + raw.split("\n").length + " " +
+      (lang === "ru" ? "стр." : "ln") +
+      (savedBytes > 30000 ? " · <span style='color:var(--warn)'>" + t("big") + "</span>" : "");
+
+    if (!issues.length) {
+      $("pane-issues").innerHTML = '<p class="okline">' + esc(t("noIssues")) + "</p>";
+    } else {
+      $("pane-issues").innerHTML = issues.map(function (i) {
+        return '<div class="issue"><span class="ln">' + i.line + '</span>' +
+          '<span class="lv ' + i.lv + '">' + i.lv + '</span>' +
+          '<span class="msg">' + esc(i.msg) + '</span></div>';
+      }).join("");
+    }
+
+    var errs = issues.filter(function (i) { return i.lv === "error"; }).length;
+    var ci = $("cnt-issues");
+    ci.textContent = issues.length;
+    ci.className = "count" + (errs ? " bad" : "");
+
+    $("pane-report").innerHTML = res.report.map(function (r) {
+      return '<div class="issue"><span class="lv ' + r.lv + '">' + (r.lv === "ok" ? "ok" : "cut") + "</span>" +
+        '<span class="msg">' + esc(r.msg) + "</span></div>";
+    }).join("");
+    var cut = res.report.filter(function (r) { return r.lv !== "ok"; }).length;
+    $("cnt-report").textContent = cut || "";
+
+    buildExport(raw);
+    updateTokenState();
+    persist();
+  }
+
+  function schedule() {
+    clearTimeout(state.timer);
+    state.timer = setTimeout(render, 200);
+  }
+
+  // -------------------------------------------------------------- export -----
+  function minify(html) {
+    return html.replace(/<!--[\s\S]*?-->/g, "").replace(/>\s+</g, "><").replace(/\s{2,}/g, " ").trim();
+  }
+  function tplEscape(s) {
+    return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+  }
+
+  var READER = [
+    "  function _ck(n){const p=(\"; \"+document.cookie).split(\"; \"+n+\"=\");return p.length===2?p.pop().split(\";\").shift():null}",
+    "  function readSession(){",
+    "    const hit=document.cookie.match(/(?:^|;\\\\s*)(sb-[^=;]+?-auth-token)(?:\\\\.\\\\d+)?=/);",
+    "    const base=hit?hit[1]:\"sb-auth-auth-token\";",
+    "    let raw=_ck(base);",
+    "    if(!raw){const parts=[];for(let i=0;;i++){const v=_ck(base+\".\"+i);if(!v)break;parts.push(v)}raw=parts.join(\"\")}",
+    "    if(!raw)throw new Error(\"session cookie not found: \"+base+\" — log in on janitorai.com and rerun\");",
+    "    let val=raw;",
+    "    try{if(/%[0-9A-Fa-f]{2}/.test(val))val=decodeURIComponent(val)}catch(e){}",
+    "    // base64-<b64url> или голый JWT — пробуем раскодировать, иначе JSON уже на месте",
+    "    if(val.startsWith(\"base64-\"))val=val.slice(7);",
+    "    const looksJson=val.charAt(0)===\"{\"||val.slice(0,3)===\"%7B\";",
+    "    if(!looksJson){",
+    "      let b64=val.replace(/-/g,\"+\").replace(/_/g,\"/\").replace(/[^A-Za-z0-9+/=]/g,\"\").replace(/=+$/,\"\");",
+    "      b64+=\"=\".repeat((4-b64.length%4)%4);",
+    "      try{val=new TextDecoder().decode(Uint8Array.from(atob(b64),c=>c.charCodeAt(0)))}catch(e){/* оставляем как есть */}",
+    "    }",
+    "    const s=JSON.parse(val);",
+    "    if(!s.access_token)throw new Error(\"no access_token in session payload\");",
+    "    return {token:s.access_token,exp:(s.expires_at||0)*1000};",
+    "  }"
+  ];
+
+  function buildExport(raw) {
+    var uuid = $("uuid").value.trim() || "PASTE_UUID";
+    var token = $("token").value.trim();
+    var html = $("minify").checked ? minify(raw) : raw;
+
+    var L = [];
+    L.push("// JAI Bio Studio · " + new Date().toISOString().slice(0, 16).replace("T", " "));
+    L.push("(async () => {");
+    L.push('  const UUID  = "' + uuid + '";');
+    L.push('  const HTML  = `' + tplEscape(html) + '`;');
+    L.push('  const TOKEN_IN = ' + (token ? '"' + token.replace(/"/g, "") + '"' : '""') + "; // empty → read cookie");
+    L.push("");
+    L.push.apply(L, READER);
+    L.push("");
+    L.push("  const s = TOKEN_IN ? {token:TOKEN_IN, exp:0} : readSession();");
+    L.push("  if (s.exp && s.exp < Date.now() + 60000) {");
+    L.push('    throw new Error("access token expired — press F5 on janitorai.com, then run this again");');
+    L.push("  }");
+    L.push("  console.log(\"token ok, saving…\");");
+    L.push("");
+    L.push("  if (typeof turnstile === \"undefined\") {");
+    L.push('    throw new Error("Turnstile is not loaded on this page — open the character page, not the home page");');
+    L.push("  }");
+    L.push("");
+    L.push("  const ts = await new Promise((res, rej) => {");
+    L.push('    const d = document.createElement("div"); d.id = "__ts";');
+    L.push("    document.body.appendChild(d);");
+    L.push("    turnstile.render(d, {");
+    L.push('      sitekey: "0x4AAAAAAE0K8d5zr3n9VR9Q", action: "character-save", theme: "dark",');
+    L.push("      callback: t => { setTimeout(() => { d.remove(); res(t); }, 50); },");
+    L.push('      "error-callback": e => { d.remove(); rej(new Error("turnstile: " + e)); },');
+    L.push('      "expired-callback": () => rej(new Error("turnstile expired")),');
+    L.push("    });");
+    L.push("  });");
+    L.push("");
+    L.push("  const r = await fetch(`https://janitorai.com/hampter/characters/${UUID}`, {");
+    L.push('    method: "PATCH",');
+    L.push('    credentials: "include",');
+    L.push("    headers: {");
+    L.push('      "content-type": "application/json",');
+    L.push('      authorization: "Bearer " + s.token,');
+    L.push('      "x-character-turnstile-token": ts,');
+    L.push("    },");
+    L.push("    body: JSON.stringify({ description: HTML }),");
+    L.push("  });");
+    L.push('  console.log(r.status, r.ok ? "OK" : await r.text());');
+    L.push("})();");
+
+    $("out").value = L.join("\n");
+  }
+
+  function tokenSnippet() {
+    var L = [];
+    L.push("// JAI Bio Studio · token grabber — run on janitorai.com, paste the result into the Token field");
+    L.push("(async () => {");
+    L.push.apply(L, READER);
+    L.push("  const s = readSession();");
+    L.push("  if (s.exp && s.exp < Date.now() + 60000) {");
+    L.push('    console.warn("token expired — press F5 and run again");');
+    L.push("  }");
+    L.push("  console.log(\"token:\", s.token);");
+    L.push("  console.log(\"expires:\", s.exp ? new Date(s.exp).toLocaleString() : \"unknown (raw JWT)\");");
+    L.push("  try { await navigator.clipboard.writeText(s.token); console.log(\"copied to clipboard\"); } catch (e) {}");
+    L.push("  return s.token;");
+    L.push("})();");
+    return L.join("\n");
+  }
+
+  function verifySnippet() {
+    var uuid = $("uuid").value.trim() || "PASTE_UUID";
+    var L = [];
+    L.push("// JAI Bio Studio · verify what the server actually stored");
+    L.push("(async () => {");
+    L.push('  const UUID = "' + uuid + '";');
+    L.push.apply(L, READER);
+    L.push("  let token = null;");
+    L.push('  try { token = (JSON.parse("{}"), readSession().token); } catch (e) {}');
+    L.push("  const h = { \"content-type\": \"application/json\" };");
+    L.push('  if (token) h["authorization"] = "Bearer " + token;');
+    L.push("  const r = await fetch(`https://janitorai.com/hampter/characters/${UUID}`, { headers: h, credentials: \"include\" });");
+    L.push("  if (!r.ok) throw new Error(r.status + \" \" + await r.text());");
+    L.push("  const data = await r.json();");
+    L.push('  console.log("%c--- SAVED BIO ---", "color:#8ab870;font-weight:bold");');
+    L.push("  console.log(data.description || \"(empty)\");");
+    L.push("})();");
+    return L.join("\n");
+  }
+
+  // ---------------------------------------------------------------- toast ----
+  var toastTimer = null;
+  function toast(msg, isErr) {
+    var el = document.querySelector(".toast");
+    if (el) el.remove();
+    el = document.createElement("div");
+    el.className = "toast" + (isErr ? " err" : "");
+    el.textContent = msg;
+    document.body.appendChild(el);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.style.opacity = "0"; setTimeout(function () { el.remove(); }, 260); }, 2200);
+  }
+
+  function copy(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { toast(t("copied")); },
+        function () { fallbackCopy(text); toast(t("copied")); });
+    } else { fallbackCopy(text); toast(t("copied")); }
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.left = "-9999px";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    ta.remove();
+  }
+
+  // ------------------------------------------------------------- storage -----
+  function persist() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({
+        lang: lang,
+        profiles: state.profiles,
+        currentId: state.currentId,
+        uuid: $("uuid").value,
+        minify: $("minify").checked,
+        mode: state.mode,
+        bg: state.bg,
+        hideWelcome: state.hideWelcome
+      }));
+    } catch (_) {}
+  }
+
+  function restore() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (_) {}
+    if (!s) {
+      var old = null;
+      try { old = JSON.parse(localStorage.getItem("jai-bio-studio") || "null"); } catch (_) {}
+      code.value = (old && old.html) ? old.html : STARTER;
+      state.profiles = [{ id: uid(), name: lang === "ru" ? "Черновик" : "Draft", html: code.value, updated: Date.now() }];
+      state.currentId = state.profiles[0].id;
+      return;
+    }
+    state.profiles = s.profiles || [];
+    state.currentId = s.currentId || null;
+    state.mode = s.mode || "saved";
+    state.bg = s.bg || "dark";
+    state.hideWelcome = !!s.hideWelcome;
+    lang = s.lang || "ru";
+    $("uuid").value = s.uuid || "";
+    $("minify").checked = s.minify !== false;
+
+    var cur = state.profiles.filter(function (p) { return p.id === state.currentId; })[0];
+    code.value = cur ? cur.html : STARTER;
+    if (!state.profiles.length) {
+      state.profiles = [{ id: uid(), name: lang === "ru" ? "Черновик" : "Draft", html: code.value, updated: Date.now() }];
+      state.currentId = state.profiles[0].id;
+    }
+  }
+
+  // ------------------------------------------------------------- gallery -----
+  function currentProfile() {
+    return state.profiles.filter(function (p) { return p.id === state.currentId; })[0] || null;
+  }
+
+  function saveToProfile() {
+    var p = currentProfile();
+    if (p) {
+      p.html = code.value; p.updated = Date.now();
+      toast(t("saved"));
+    } else {
+      saveAs();
+    }
+    renderGallery(); persist();
+  }
+
+  function saveAs() {
+    var name = $("gal-name").value.trim();
+    if (!name) { $("gal-name").focus(); return; }
+    var existing = state.profiles.filter(function (p) { return p.name === name; })[0];
+    if (existing) {
+      existing.html = code.value; existing.updated = Date.now();
+      state.currentId = existing.id;
+      toast(t("saved"));
+    } else {
+      var id = uid();
+      state.profiles.unshift({ id: id, name: name, html: code.value, updated: Date.now() });
+      state.currentId = id;
+      toast(t("saved"));
+    }
+    $("gal-name").value = "";
+    renderGallery(); persist();
+  }
+
+  function renderGallery() {
+    var box = $("gal-list");
+    if (!state.profiles.length) {
+      box.innerHTML = '<p class="empty">' + esc(t("galEmpty")) + "</p>";
+    } else {
+      box.innerHTML = state.profiles.map(function (p) {
+        var cur = p.id === state.currentId;
+        return '<div class="gal-item' + (cur ? " cur" : "") + '" data-id="' + p.id + '">' +
+          '<span class="nm">' + esc(p.name) + (cur ? ' <span class="meta">· ' + esc(t("cur")) + "</span>" : "") + "</span>" +
+          '<span class="meta">' + fmtSize(bytes(p.html)) + " · " + new Date(p.updated).toLocaleDateString() + "</span>" +
+          '<button class="sm" data-act="open">' + esc(t("open")) + "</button>" +
+          '<button class="sm" data-act="dup">' + esc(t("dup")) + "</button>" +
+          '<button class="sm ghost danger" data-act="del">' + esc(t("del")) + "</button>" +
+          "</div>";
+      }).join("");
+    }
+    $("cnt-gal").textContent = state.profiles.length || "";
+  }
+
+  // ------------------------------------------------------------- editor ------
+  function insertAtCursor(text) {
+    var s = code.selectionStart, e = code.selectionEnd;
+    code.setRangeText(text, s, e, "end");
+    code.focus();
+    schedule();
+  }
+
+  // ---------------------------------------------------------------- init -----
+  function applyLang() {
+    document.documentElement.lang = lang;
+    [].forEach.call(document.querySelectorAll("[data-i18n]"), function (el) {
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    $("btn-new").title = t("reset");
+    $("uuid").placeholder = "07446625-25bc-4a60-af8f-693385106fd2";
+    $("img-url").placeholder = "https://ella.janitorai.com/...";
+    $("gal-name").placeholder = t("galNamePh");
+    $("token").placeholder = "—";
+    [].forEach.call(document.querySelectorAll("#seg-lang button"), function (b) {
+      b.classList.toggle("on", b.dataset.lang === lang);
+    });
+    $("btn-bg").textContent = state.bg === "dark" ? t("bgDark") : t("bgLight");
+    $("help-body").innerHTML = t("help");
+    $("welcome-body").innerHTML = t("welcomeBody");
+    rebuildSnippets();
+    renderGallery();
+  }
+
+  function rebuildSnippets() {
+    var bar = $("snippets");
+    bar.innerHTML = "";
+    SNIPPETS.forEach(function (s) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = s[lang] || s.ru;
+      b.addEventListener("click", function () { insertAtCursor(s.html); });
+      bar.appendChild(b);
+    });
+  }
+
+  function updateTokenState() {
+    var el = $("token-state");
+    var tok = $("token").value.trim();
+    if (!tok) { el.textContent = t("tokenEmpty"); el.style.color = ""; return; }
+    var exp = 0;
+    try {
+      var payload = tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      payload += "=".repeat((4 - payload.length % 4) % 4);
+      exp = (JSON.parse(atob(payload)).exp || 0) * 1000;
+    } catch (_) {}
+    if (exp && exp < Date.now()) {
+      el.textContent = t("tokenExpired"); el.style.color = "var(--err)";
+    } else {
+      el.textContent = t("tokenSet"); el.style.color = "";
+    }
+  }
+
+  function initFonts() {
+    var sel = $("fontsel");
+    FONTS.forEach(function (f) {
+      var o = document.createElement("option");
+      o.value = f.name; o.textContent = f.name;
+      sel.appendChild(o);
+    });
+  }
+
+  function initEvents() {
+    code.addEventListener("input", schedule);
+    code.addEventListener("scroll", function () {
+      hl.scrollTop = code.scrollTop;
+      hl.scrollLeft = code.scrollLeft;
+    });
+    code.addEventListener("keydown", function (ev) {
+      if (ev.key === "Tab") { ev.preventDefault(); insertAtCursor("  "); }
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); render(); }
+      if (ev.key === "s" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); saveToProfile(); }
+    });
+
+    // язык
+    $("seg-lang").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button");
+      if (!b) return;
+      lang = b.dataset.lang;
+      applyLang(); render(); persist();
+    });
+
+    $("btn-apply-font").addEventListener("click", function () {
+      var font = $("fontsel").value;
+      var s = code.selectionStart, e = code.selectionEnd;
+      var sel = code.value.slice(s, e) || (lang === "ru" ? "текст" : "text");
+      var ins = '<span style="font-family: ' + font + ';">' + sel + "</span>";
+      code.setRangeText(ins, s, e, "end");
+      if (s === e) {
+        var p = s + ins.length - "</span>".length;
+        code.setSelectionRange(p, p);
+      }
+      code.focus(); schedule();
+    });
+
+    // картинка
+    $("btn-img").addEventListener("click", function () {
+      $("imgpanel").classList.toggle("on");
+      if ($("imgpanel").classList.contains("on")) $("img-url").focus();
+    });
+    $("btn-img-close").addEventListener("click", function () { $("imgpanel").classList.remove("on"); });
+    $("btn-img-inline").addEventListener("click", function () {
+      var url = $("img-url").value.trim();
+      if (!url) { toast(t("imgNoUrl"), true); return; }
+      var w = parseInt($("img-w").value, 10) || 320;
+      var r = parseInt($("img-r").value, 10) || 0;
+      insertAtCursor('<img src="' + url + '" alt="" style="display: block; width: 100%; max-width: ' + w +
+        'px; height: auto; border-radius: ' + r + 'px; margin: 0 auto 1rem;">');
+    });
+    $("btn-img-bg").addEventListener("click", function () {
+      var url = $("img-url").value.trim();
+      if (!url) { toast(t("imgNoUrl"), true); return; }
+      var r = parseInt($("img-r").value, 10) || 0;
+      insertAtCursor('<div style="background-image: url(\'' + url + '\'); background-size: cover; background-position: center; ' +
+        'height: 220px; border-radius: ' + r + 'px; margin: 0 0 1rem;"></div>');
+    });
+
+    // превью
+    $("seg-mode").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button");
+      if (!b) return;
+      state.mode = b.dataset.mode;
+      [].forEach.call(this.querySelectorAll("button"), function (x) { x.classList.toggle("on", x === b); });
+      render();
+    });
+    $("btn-bg").addEventListener("click", function () {
+      state.bg = state.bg === "dark" ? "light" : "dark";
+      this.textContent = state.bg === "dark" ? t("bgDark") : t("bgLight");
+      render();
+    });
+    $("btn-refresh").addEventListener("click", render);
+
+    // табы
+    document.querySelector(".tabs").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-tab]");
+      if (!b) return;
+      var name = b.dataset.tab;
+      [].forEach.call(this.querySelectorAll("button[data-tab]"), function (x) { x.classList.toggle("on", x === b); });
+      [].forEach.call(document.querySelectorAll(".pane"), function (p) { p.classList.toggle("on", p.id === "pane-" + name); });
+      bottom.classList.remove("collapsed");
+      $("btn-collapse").textContent = "⌄";
+    });
+    $("btn-collapse").addEventListener("click", function () {
+      bottom.classList.toggle("collapsed");
+      this.textContent = bottom.classList.contains("collapsed") ? "⌃" : "⌄";
+    });
+
+    // экспорт
+    ["uuid", "token"].forEach(function (id) {
+      $(id).addEventListener("input", function () { buildExport(code.value); updateTokenState(); persist(); });
+    });
+    $("minify").addEventListener("change", function () { buildExport(code.value); persist(); });
+
+    $("btn-copy-script").addEventListener("click", function () { copy($("out").value); });
+    $("btn-copy-html").addEventListener("click", function () {
+      copy($("minify").checked ? minify(code.value) : code.value);
+    });
+    $("btn-copy-verify").addEventListener("click", function () { copy(verifySnippet()); });
+    $("btn-get-token").addEventListener("click", function () {
+      copy(tokenSnippet());
+      bottom.classList.remove("collapsed");
+      [$("pane-export")].forEach(function () {});
+      toast(lang === "ru" ? "Сниппет в буфере — вставь в консоль janitorai.com" : "Snippet copied — paste it in the janitorai.com console");
+    });
+    $("btn-download").addEventListener("click", function () {
+      var blob = new Blob([code.value], { type: "text/html;charset=utf-8" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "bio.html";
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    });
+
+    // галерея
+    $("btn-save").addEventListener("click", saveToProfile);
+    $("btn-new").addEventListener("click", function () {
+      code.value = STARTER;
+      $("gal-name").value = "";
+      state.currentId = null;
+      render(); renderGallery(); persist();
+    });
+    $("btn-gal-save").addEventListener("click", saveAs);
+    $("gal-name").addEventListener("keydown", function (ev) { if (ev.key === "Enter") saveAs(); });
+    $("gal-list").addEventListener("click", function (ev) {
+      var btn = ev.target.closest("button[data-act]");
+      var row = ev.target.closest(".gal-item");
+      if (!btn || !row) return;
+      var id = row.dataset.id;
+      var p = state.profiles.filter(function (x) { return x.id === id; })[0];
+      if (!p) return;
+      var act = btn.dataset.act;
+      if (act === "open") {
+        var cur = currentProfile();
+        if (cur && cur.id !== id) cur.html = code.value;
+        state.currentId = id;
+        code.value = p.html;
+      } else if (act === "dup") {
+        var copyRow = { id: uid(), name: p.name + " (copy)", html: p.html, updated: Date.now() };
+        state.profiles.unshift(copyRow);
+        state.currentId = copyRow.id;
+        code.value = copyRow.html;
+      } else if (act === "del") {
+        if (!confirm(t("confirmDel", { n: p.name }))) return;
+        state.profiles = state.profiles.filter(function (x) { return x.id !== id; });
+        if (state.currentId === id) {
+          state.currentId = state.profiles.length ? state.profiles[0].id : null;
+          code.value = state.currentId ? state.profiles[0].html : STARTER;
+        }
+        toast(t("deleted"));
+      }
+      render(); renderGallery(); persist();
+    });
+
+    $("btn-gal-export").addEventListener("click", function () {
+      var cur = currentProfile();
+      if (cur) cur.html = code.value;
+      var blob = new Blob([JSON.stringify({ app: "jai-bio-studio", version: 2, profiles: state.profiles }, null, 2)],
+        { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "jai-bio-profiles.json";
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    });
+    $("btn-gal-import").addEventListener("click", function () { $("gal-file").click(); });
+    $("gal-file").addEventListener("change", function (ev) {
+      var f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          var data = JSON.parse(fr.result);
+          var list = Array.isArray(data) ? data : data.profiles;
+          if (!Array.isArray(list)) throw new Error("no profiles");
+          var added = 0;
+          list.forEach(function (p) {
+            if (!p || typeof p.html !== "string") return;
+            state.profiles.unshift({ id: uid(), name: p.name || "imported", html: p.html, updated: Date.now() });
+            added++;
+          });
+          renderGallery(); persist();
+          toast(added + " " + t("saved"));
+        } catch (e) { toast("JSON: " + e.message, true); }
+      };
+      fr.readAsText(f);
+      ev.target.value = "";
+    });
+    $("btn-gal-clear").addEventListener("click", function () {
+      if (!confirm(t("confirmClear"))) return;
+      state.profiles = [];
+      state.currentId = null;
+      code.value = STARTER;
+      render(); renderGallery(); persist();
+    });
+
+    // модалка помощи
+    function openWelcome() { $("welcome").classList.add("on"); }
+    function closeWelcome() {
+      if ($("welcome-hide").checked) {
+        state.hideWelcome = true;
+        persist();
+      }
+      $("welcome").classList.remove("on");
+    }
+    $("welcome-close").addEventListener("click", closeWelcome);
+    $("welcome-ok").addEventListener("click", closeWelcome);
+    $("welcome").addEventListener("click", function (ev) {
+      if (ev.target === $("welcome")) closeWelcome();
+    });
+    window.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape" && $("welcome").classList.contains("on")) closeWelcome();
+      if (ev.key === "F1") { ev.preventDefault(); openWelcome(); }
+    });
+    $("btn-help").addEventListener("click", openWelcome);
+
+    // ресайз
+    var dragging = false;
+    $("divider").addEventListener("mousedown", function (ev) {
+      dragging = true; document.body.style.cursor = "col-resize"; ev.preventDefault();
+    });
+    window.addEventListener("mousemove", function (ev) {
+      if (!dragging) return;
+      var r = split.getBoundingClientRect();
+      var w = (ev.clientX - r.left) / r.width * 100;
+      w = Math.min(82, Math.max(18, w));
+      left.style.flexBasis = w + "%";
+      right.style.flexBasis = (100 - w) + "%";
+    });
+    window.addEventListener("mouseup", function () {
+      dragging = false; document.body.style.cursor = "";
+    });
+
+    window.addEventListener("beforeunload", function () {
+      var cur = currentProfile();
+      if (cur) cur.html = code.value;
+      persist();
+    });
+  }
+
+  // ----------------------------------------------------------------- run -----
+  initFonts();
+  restore();
+  initEvents();
+  applyLang();
+  render();
+  if (!state.hideWelcome) $("welcome").classList.add("on");
+})();
+</script>
+</body>
+</html>
