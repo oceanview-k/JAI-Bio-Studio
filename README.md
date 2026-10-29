@@ -1,3 +1,6 @@
+
+#  ⚠️ created entirely by AI  ⚠️
+
 # JAI Bio Studio
 
 Editor for JanitorAI character bios with a live preview of what the server sanitizer **actually keeps**.
