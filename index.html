@@ -45,9 +45,14 @@
   select{cursor:pointer}
   .label{color:var(--dim); font-size:11.5px; text-transform:uppercase; letter-spacing:.09em; white-space:nowrap}
   main{flex:1; display:flex; min-height:0}
-  #pane-left,#pane-right{display:flex; flex-direction:column; min-width:0; flex-basis:50%}
+  #pane-left,#pane-right{display:flex; flex-direction:column; min-width:0}
+  #pane-left{flex:0 0 auto; width:50%}
+  #pane-right{flex:1 1 0}
   #divider{flex:none; width:6px; cursor:col-resize; background:var(--panel); border-left:1px solid var(--line); border-right:1px solid var(--line)}
   #divider:hover{background:#232a34}
+  #split.dragging{cursor:col-resize; user-select:none}
+  #split.dragging #preview{pointer-events:none}
+  #split.dragging #code,#split.dragging #hl{pointer-events:none}
   .toolbar{
     display:flex; align-items:center; gap:8px; padding:7px 10px; flex:none;
     border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap;
@@ -61,7 +66,8 @@
   #hl,#code{
     position:absolute; inset:0; margin:0; padding:12px 14px;
     font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-    tab-size:2; white-space:pre; overflow:auto; border:0; border-radius:0;
+    tab-size:2; white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word;
+    overflow-x:hidden; overflow-y:auto; scrollbar-gutter:stable; border:0; border-radius:0;
   }
   #hl{pointer-events:none; color:var(--c-txt); background:transparent; overflow:hidden}
   #code{background:transparent; color:transparent; caret-color:#ffd479; resize:none; outline:none}
@@ -226,7 +232,7 @@
     </div>
     <div id="editwrap">
       <pre id="hl" aria-hidden="true"></pre>
-      <textarea id="code" spellcheck="false" autocomplete="off" wrap="off"></textarea>
+      <textarea id="code" spellcheck="false" autocomplete="off" wrap="soft"></textarea>
     </div>
   </section>
 
@@ -1502,19 +1508,38 @@
 
     // ресайз
     var dragging = false;
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = "";
+      split.classList.remove("dragging");
+    }
     $("divider").addEventListener("mousedown", function (ev) {
-      dragging = true; document.body.style.cursor = "col-resize"; ev.preventDefault();
+      dragging = true;
+      document.body.style.cursor = "col-resize";
+      split.classList.add("dragging");
+      ev.preventDefault();
     });
     window.addEventListener("mousemove", function (ev) {
       if (!dragging) return;
+      ev.preventDefault();
       var r = split.getBoundingClientRect();
-      var w = (ev.clientX - r.left) / r.width * 100;
-      w = Math.min(82, Math.max(18, w));
-      left.style.flexBasis = w + "%";
-      right.style.flexBasis = (100 - w) + "%";
+      var dw = $("divider").offsetWidth;
+      var w = ev.clientX - r.left - dw / 2;
+      var min = 220;
+      w = Math.max(min, Math.min(r.width - dw - min, w));
+      left.style.width = w + "px";
     });
-    window.addEventListener("mouseup", function () {
-      dragging = false; document.body.style.cursor = "";
+    window.addEventListener("mouseup", endDrag);
+    window.addEventListener("blur", endDrag);
+    document.addEventListener("mouseleave", endDrag);
+    window.addEventListener("resize", function () {
+      if (!left.style.width) return;
+      var r = split.getBoundingClientRect();
+      var dw = $("divider").offsetWidth;
+      var w = parseFloat(left.style.width) || 0;
+      w = Math.max(220, Math.min(r.width - dw - 220, w));
+      left.style.width = w + "px";
     });
 
     window.addEventListener("beforeunload", function () {
