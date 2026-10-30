@@ -63,8 +63,15 @@
 
   /* редактор с подсветкой */
   #editwrap{position:relative; flex:1; min-height:0; background:#0b0d10}
+  #gutter{
+    position:absolute; top:0; left:0; bottom:0; width:46px; padding:12px 8px 12px 0;
+    overflow:hidden; text-align:right; color:#4a5462; user-select:none; z-index:1;
+    font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    font-variant-numeric:tabular-nums; background:#0b0d10;
+    border-right:1px solid #1b2029; white-space:pre; tab-size:2;
+  }
   #hl,#code{
-    position:absolute; inset:0; margin:0; padding:12px 14px;
+    position:absolute; top:0; right:0; bottom:0; left:46px; margin:0; padding:12px 14px;
     font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     tab-size:2; white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word;
     overflow-x:hidden; overflow-y:auto; scrollbar-gutter:stable; border:0; border-radius:0;
@@ -231,6 +238,7 @@
       <div class="snippets" id="snippets"></div>
     </div>
     <div id="editwrap">
+      <div id="gutter" aria-hidden="true"></div>
       <pre id="hl" aria-hidden="true"></pre>
       <textarea id="code" spellcheck="false" autocomplete="off" wrap="soft"></textarea>
     </div>
@@ -737,6 +745,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var code = $("code"), hl = $("hl"), preview = $("preview");
   var left = $("pane-left"), right = $("pane-right"), split = $("split"), bottom = $("bottom");
+  gutterEl = $("gutter");
 
   var state = {
     mode: "saved", bg: "dark", timer: null,
@@ -744,6 +753,53 @@
   };
 
   var STORE = "jai-bio-studio.v2";
+
+  // ------------------------------------------------------------ gutter -----
+  // Номера строк рисуются построчно, ровно по высоте строки редактора.
+  // При мягком переносе одна логическая строка занимает N строк на экране,
+  // поэтому число визуальных рядов считаем по ширине текста.
+  var GUTTER = { canvas: null, width: 0 };
+  var gutterEl = null;
+
+  function measureGutter() {
+    if (GUTTER.canvas) return;
+    var c = document.createElement("canvas").getContext("2d");
+    var cs = getComputedStyle(code);
+    c.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    GUTTER.canvas = c;
+    GUTTER.width = Math.ceil(c.measureText("9999").width) + 26;
+  }
+
+  function gutterHTML() {
+    measureGutter();
+    if (gutterEl.style.width !== GUTTER.width + "px") gutterEl.style.width = GUTTER.width + "px";
+
+    var value = code.value;
+    var lines = value.split("\n");
+    var out = [];
+    var wrap = code.clientWidth > 0 ? code.clientWidth - 28 : 0;
+
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].replace(/\t/g, "  ");
+      var rows = 1;
+      if (wrap > 0 && t.length) {
+        var w = GUTTER.canvas.measureText(t).width;
+        rows = Math.max(1, Math.ceil(w / wrap));
+      }
+      out.push("<div>" + (i + 1) + "</div>");
+      for (var r = 1; r < rows; r++) out.push("<div>&nbsp;</div>");
+    }
+    return out.join("");
+  }
+
+  function syncGutter() {
+    gutterEl.scrollTop = code.scrollTop;
+  }
+
+  function renderGutter() {
+    gutterEl.innerHTML = gutterHTML();
+    syncGutter();
+  }
 
   // -------------------------------------------------------------- helpers ----
   function lineOf(text, index) {
@@ -939,6 +995,7 @@
     hl.innerHTML = highlight(raw) + "\n";
     hl.scrollTop = code.scrollTop;
     hl.scrollLeft = code.scrollLeft;
+    renderGutter();
 
     var res = sanitize(raw);
     var issues = lint(raw);
@@ -1298,6 +1355,7 @@
     code.addEventListener("scroll", function () {
       hl.scrollTop = code.scrollTop;
       hl.scrollLeft = code.scrollLeft;
+      syncGutter();
     });
     code.addEventListener("keydown", function (ev) {
       if (ev.key === "Tab") { ev.preventDefault(); insertAtCursor("  "); }
@@ -1529,6 +1587,7 @@
       var min = 220;
       w = Math.max(min, Math.min(r.width - dw - min, w));
       left.style.width = w + "px";
+      renderGutter();
     });
     window.addEventListener("mouseup", endDrag);
     window.addEventListener("blur", endDrag);
@@ -1540,6 +1599,7 @@
       var w = parseFloat(left.style.width) || 0;
       w = Math.max(220, Math.min(r.width - dw - 220, w));
       left.style.width = w + "px";
+      renderGutter();
     });
 
     window.addEventListener("beforeunload", function () {
